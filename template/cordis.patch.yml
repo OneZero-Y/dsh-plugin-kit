@@ -1,0 +1,17 @@
+# The bundle patch applied to a profile when this package is installed with
+# `dsh plugin --profile <name> add <spec>`.
+#
+# `id` is deployment-local — it does not need to match the npm package name
+# or the Cordis plugin `name` export below. `name` here must be the installed
+# package name so Node module resolution finds the code once this leaves your
+# development checkout.
+#
+# A later patch layer that targets this same `id` replaces this row's entire
+# `config` value; it does not merge individual keys. See "Installing and the
+# loading order" in dsh-plugin-kit's docs/plugin-contract-reference.md.
+
+- insert:
+    - id: dsh-plugin-template
+      name: '@your-scope/dsh-plugin-template'
+      # config:
+      #   greeting: 'Hi there'

@@ -1,0 +1,4 @@
+openai:
+  display_name: DSH Forge - Ship
+  short_description: Pick a distribution channel and verify a DSH plugin installs cleanly.
+  default_prompt: $dsh-forge-ship prepare this standalone DeepSeek Harness plugin for distribution

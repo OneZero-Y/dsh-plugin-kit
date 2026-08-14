@@ -1,0 +1,12 @@
+lib/
+node_modules/
+*.tsbuildinfo
+*.tgz
+coverage/
+
+# This directory is a scaffolding template, not a real package: dsh-forge-init
+# regenerates the lockfile after identity/dependency edits in the new
+# repository, so a lockfile checked in here under the placeholder package
+# name would only be stale.
+pnpm-lock.yaml
+package-lock.json

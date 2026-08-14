@@ -1,0 +1,4 @@
+openai:
+  display_name: DSH Forge - Verify
+  short_description: Select and write tests that catch real DSH plugin failure modes.
+  default_prompt: $dsh-forge-verify select and write tests for this standalone DeepSeek Harness plugin

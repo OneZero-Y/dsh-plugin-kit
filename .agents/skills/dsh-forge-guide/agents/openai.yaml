@@ -1,0 +1,4 @@
+openai:
+  display_name: DSH Forge - Guide
+  short_description: Orchestrate the full standalone DSH plugin workflow, stage by stage.
+  default_prompt: $dsh-forge-guide help me build a standalone DeepSeek Harness plugin end to end

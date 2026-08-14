@@ -1,0 +1,4 @@
+openai:
+  display_name: DSH Forge - Wire
+  short_description: Compose a DSH plugin into a real profile and prove it actually activates.
+  default_prompt: $dsh-forge-wire wire this standalone DeepSeek Harness plugin into a profile and verify activation

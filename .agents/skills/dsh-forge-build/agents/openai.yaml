@@ -1,0 +1,4 @@
+openai:
+  display_name: DSH Forge - Build
+  short_description: Implement tools, events, and lifecycle-safe behavior in a DSH plugin.
+  default_prompt: $dsh-forge-build implement the behavior for this standalone DeepSeek Harness plugin

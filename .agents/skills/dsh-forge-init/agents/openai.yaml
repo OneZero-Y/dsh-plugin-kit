@@ -1,0 +1,4 @@
+openai:
+  display_name: DSH Forge - Init
+  short_description: Scaffold a new standalone DSH plugin repository from the kit template.
+  default_prompt: $dsh-forge-init scaffold a new standalone DeepSeek Harness plugin repository
