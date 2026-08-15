@@ -30,6 +30,19 @@ Function form is sufficient for most plugins. Use class form specifically when t
 
 **Do not mix a default export with named `name`/`inject`/`apply` exports on the same module.** DSH's real Loader normalizes an imported module through `exports.default ?? exports`; if a `default` export exists, the Loader uses only that value and the named siblings (`inject`, `Config`, `apply`) are discarded from what the Loader sees. A plugin defined this way loads with an empty `inject`, and any service access inside `apply` throws `cannot get property "<name>" without inject` — not a type error, a runtime crash on load. This is not a theoretical rule: it shipped in the official DSH ACP server and crashed every real editor connection despite full unit test coverage, because every test in that suite mounted the plugin by hand (`ctx.plugin({ name, inject, apply })`) instead of through the module's actual export shape. See `docs/postmortem/0001-acp-default-export-drops-inject.md` in the DSH repository for the full account. The practical consequence: **test the plugin through the real Loader unwrap path**, not just a hand-built `ctx.plugin()` call — `dsh-forge-verify` covers this.
 
+This kit's own `template/` was deliberately broken this way and booted against a real DSH profile to confirm the mechanism, not just cite the postmortem secondhand. The failure is worse than "inject is silently empty": Cordis's registry resolves a plugin shape with `typeof plugin === 'function' ? plugin : plugin.apply` (`vendor/cordis/src/registry.ts`) — when a default export exists, that resolved value **is** the function itself, so every sibling named export (`inject`, `Config`, `name`) is invisible to the loader, not just `inject`. Because `Config` is also lost, Cordis never runs the plugin's config through its Standard Schema validator, so schema defaults never get filled in — the plugin receives whatever raw (often `undefined`-shaped) config the loader entry passed, before any of this kit's own default-filling logic runs. On top of that, an ordinary named `function apply(ctx, config) {}` declaration has a `.prototype` property (true of any non-arrow function in JavaScript), which trips Cordis's `isConstructor()` heuristic (`vendor/cordis/src/fiber.ts`) into invoking it with `new apply(ctx, config)` instead of a plain call — visible in a real stack trace as `at new apply (...)`, which looks like a `new` call site that doesn't exist anywhere in the plugin's own source.
+
+The reproduced failure, with `inject: ['tools']` and a stray `export default apply` added to this kit's own template, was:
+
+```
+TypeError: Cannot read properties of undefined (reading 'greeting')
+    at Fiber.<anonymous> (.../dsh-plugin-kit/template/lib/index.js:41:55)
+    ...
+    at new apply (.../dsh-plugin-kit/template/lib/index.js:40:6)
+```
+
+not a missing-service error — the crash happens reading an unvalidated config field before any injected-service access is reached, because the schema that would have supplied the `'Hello'` default never ran.
+
 ## Declaring dependencies with `inject`
 
 If a plugin's `apply` reads a service from `ctx` (`ctx.tools`, `ctx.llm`, `ctx.agents`, or a service another plugin provides), declare it as required in `inject`:
