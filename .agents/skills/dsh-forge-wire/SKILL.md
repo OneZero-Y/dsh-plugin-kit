@@ -59,10 +59,23 @@ Confirm: the plugin's row appears with a layer-source comment identifying your b
 
 Only after the dump looks correct, boot the actual profile and observe a real effect specific to this plugin's activation — not merely that the process started, and not only a log line belonging to a different row. Dispose of any long-lived process cleanly once the smoke test is done.
 
+## Proving activation for a client half
+
+Everything above proves the *host* half activated. A client half needs its own, separate activation proof, because a host-side `apply()` can do nothing at all (no `Config`, no host-visible log line — see "`Config` is not the same thing as a client-owned user preference" in `docs/plugin-contract-reference.md`) while the client half is fully broken, or vice versa. `--dump-config` and a host boot smoke tell you nothing about whether the browser half rendered.
+
+Confirmed by actually doing this against a real `dsh web` instance for a client-half plugin: boot the profile, open it in a browser, and check the specific UI the plugin is supposed to add — not just that the page loaded without a console error. At minimum:
+
+1. The plugin's UI actually appears where it was designed to (a settings row in the right section, a slot rendering in the right place) — not just that no error was thrown.
+2. Interacting with it produces the effect it should (a toggle actually changes something visible, a color picker actually changes a color) — exercise every control the plugin adds, not just the first one.
+3. The effect survives a page refresh if the design called for persistence (a chosen theme, a saved preference) — reload and re-check, don't assume persistence works because the write call didn't throw.
+4. After `dsh plugin --profile <scratch-profile> remove <package>` and a profile restart, the UI is gone and any effect it was applying (a color override, an injected element) is cleanly reverted — not just that the settings row disappeared while a stray visual effect lingers.
+
+Write this as a numbered manual checklist in the handoff (or in the plugin's own verification notes) rather than a vague "looked fine in the browser" — a later contributor re-running the same checklist after a change is the actual value of having done this once.
+
 ## What this skill does not cover
 
 `cordis.patch.yml` composes plugin rows and their configuration — it cannot edit DSH's own source files, compiler settings, or launcher code. If a plugin's behavior seems to require changing DSH itself, that need belongs upstream in `deepseek-ai/deepseek-harness` as a contribution to that repository (following its own `AGENTS.md`), not as a patch mechanism carried in your plugin's repository. Stop and flag this rather than inventing a workaround.
 
 ## Handoff
 
-Report the profile used, the install spec, the confirmed effective row (including its layer source), any warnings observed, and the activation evidence. Hand off to `dsh-forge-verify` for the behavioral test suite and to `dsh-forge-ship` once composition is proven and the package is ready to be distributed to someone else's profile.
+Report the profile used, the install spec, the confirmed effective row (including its layer source), any warnings observed, and the activation evidence — for a client-half plugin, that means the manual browser checklist above, not just the host-side `--dump-config`/boot smoke. Hand off to `dsh-forge-verify` for the behavioral test suite and to `dsh-forge-ship` once composition is proven and the package is ready to be distributed to someone else's profile.

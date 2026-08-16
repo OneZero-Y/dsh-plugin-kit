@@ -42,7 +42,7 @@ Ask whether this is a swappable capability that plausibly needs multiple interch
 
 ## Decide host-only vs. host-plus-client
 
-State explicitly whether this plugin needs a browser (DSH Web GUI) half. Default to host-only unless the capability requires drawing something in the DSH Web page itself. If a client half is genuinely needed, flag it as the lower-confidence area the contract reference describes, and plan to validate the mechanism against a real running `dsh web` instance rather than assuming the inferred contract is exact.
+State explicitly whether this plugin needs a browser (DSH Web GUI) half. Default to host-only unless the capability requires drawing something in the DSH Web page itself. If a client half is genuinely needed, flag it as the mixed-confidence area the contract reference describes — the bundling setup and the `ctx.theme`/`ctx.settingsScope` service pattern are confirmed against a real `dsh web` instance, but the general `ctx.slots`/prop contract is still inferred from documentation written for a different audience — and plan to validate the mechanism against a real running `dsh web` instance rather than assuming the inferred parts of the contract are exact. If the plugin will need a client-owned preference to persist, note now that this needs a host-side optional `settings` registration (see "`Config` is not the same thing as a client-owned user preference" in the contract reference), not a `Config` field — deciding this here avoids `dsh-forge-build` designing the wrong mechanism.
 
 ## Output: the decision record
 

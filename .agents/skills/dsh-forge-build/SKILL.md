@@ -49,6 +49,12 @@ If `dsh-forge-design` marked a service as optional, read it with `ctx.get('servi
 
 Read configuration values through the typed `config` parameter `apply` already receives — do not re-derive a config value from environment variables or module-level state inside implementation code. If implementation reveals a value should have been configurable but wasn't designed as a `Config` field, go back and add it properly (schema, default, documentation) rather than hardcoding a fallback inline.
 
+**Do not reach for `Config` when what you're actually building is a client-half user preference.** If `dsh-forge-design` flagged this plugin as needing a browser half, and the thing you're implementing is a setting the plugin's *own UI* lets someone change at runtime (a color, a toggle) rather than something an operator sets before the process starts, that's a durable settings section registered from the host half through the optional `ctx.inject(['settings'], ...)` pattern, not a `Config` field — see "`Config` is not the same thing as a client-owned user preference" in `docs/plugin-contract-reference.md` and `template/optional-client-half.md`'s matching client-side section.
+
+## If you're building a client half
+
+Follow `template/optional-client-half.md` for the bundling setup (two `tsdown.config.ts` targets, and deriving `CLIENT_EXTERNALS` from the target dependency's own compiled `lib/client.js` rather than guessing it — an incomplete externals list bundles a silent duplicate copy of `react` or a `@deepseek-ai/dsh-client-*` service instead of sharing the host's instance). Keep the client half's own Loader-facing surface (`src/client/index.ts`'s `name`/`inject`/`apply`) under the same no-default-export discipline as the host half above — `dsh-forge-verify`'s Loader-shape test applies to both entry modules independently.
+
 ## If you're building a three-role capability
 
 When `dsh-forge-design` called for a Service Definition / Provider / Consumer split, keep the definition package's public interface limited to the abstract service class and its request/result types — no implementation detail. A provider package depends on the definition; a consumer package depends on the definition; providers and consumers never import each other directly.

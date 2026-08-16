@@ -14,7 +14,7 @@ None of that applies to you. You are writing a plugin in your own repository tha
 
 A plugin has a **host half** — an ESM module that runs under Node.js and registers tools, services, or event listeners on a Cordis `Context` — and, optionally, a **client half** — browser code that runs inside the DSH Web GUI and renders UI.
 
-Most plugins only need the host half. Add a client half only when the plugin must draw something in the DSH Web page itself (a settings row, a sidebar panel, a themed color). The host-half rules below are drawn directly from the official standalone-plugin tutorial series and are high-confidence. The client-half section at the end is explicitly lower-confidence: the official docs that describe `ctx.slots`, prop discipline, and plugin package layout (`packages/client/AGENTS.md`) are written for contributing a *built-in* client package to the DSH repository itself, not for a third-party plugin installed from outside. Read that section as "here is what the mechanism appears to be; verify it against a real `dsh web` instance before shipping," not as a proven tutorial.
+Most plugins only need the host half. Add a client half only when the plugin must draw something in the DSH Web page itself (a settings row, a sidebar panel, a themed color). The host-half rules below are drawn directly from the official standalone-plugin tutorial series and are high-confidence. The client-half section at the end is mixed-confidence: the general slot/prop contract (`ctx.slots`, prop discipline, plugin package layout) still traces to `packages/client/AGENTS.md`, written for contributing a *built-in* client package to the DSH repository itself, not for a third-party plugin installed from outside — read that part as "here is what the mechanism appears to be; verify it against a real `dsh web` instance before shipping." The bundling shape and the `ctx.theme`/`ctx.settingsScope` service pattern, by contrast, were confirmed against a real installed package's compiled output and a real `dsh web` boot, and are called out as such where they appear.
 
 ## Plugin forms (host half)
 
@@ -83,6 +83,32 @@ DSH validates configuration against this schema while loading the plugin and fil
 **Anything two deployments might reasonably want to set differently is a configuration field, not a hardcoded constant.** The concrete test the official docs give: could `cordis.yml` change this value without a code edit? If yes, it belongs in `Config`. ("Plugin configuration" → "Design principles" → "Do not hardcode tunable values.")
 
 A configuration edit hot-replaces the plugin (old instance unloaded, new one loaded with the new config). Because registrations are effects that clean themselves up (see below), this replacement does not leak the old instance's registrations. ("Plugin configuration" → "Work with HMR.")
+
+### `Config` is not the same thing as a client-owned user preference
+
+`Config` is **deployment-time** configuration: a value an operator sets in `cordis.yml`/`cordis.patch.yml` before or between runs, validated once at load. It is not the mechanism for a **user-facing preference a client-half plugin's own UI lets someone change at runtime** (a theme choice, a toggle in a settings row) — those two are different concepts with different owners, and confusing them is an easy mistake because both get called "configuration" in casual conversation.
+
+Concrete evidence this is a real distinction, not a stylistic one: reading the compiled host halves of DSH's own official client packages (`@deepseek-ai/dsh-client-ui-theme`, `@deepseek-ai/dsh-client-locale`) shows **neither exports a `Config` schema at all** — their host half exists solely to register a durable settings section:
+
+```ts
+// A client-half plugin's host half, when it needs a preference to persist.
+// No Config export — this plugin has no deployment-time tunable value.
+import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type { Context } from '@deepseek-ai/cordis'
+
+export const name = 'your-plugin'
+export const inject: string[] = [] // stays optional; see below
+
+export function apply(ctx: Context): void {
+  ctx.inject(['settings'], (settingsCtx) => {
+    settingsCtx.settings.register(settingsNamespace('your-plugin-preferences'), YourPreferencesSchema)
+  })
+}
+```
+
+The pattern to notice: `settings` is deliberately **not** in the static `inject` array (which would make the whole plugin refuse to load without a settings provider present); instead it's requested through `ctx.inject([...], callback)` — the optional-service pattern from "Declaring dependencies with `inject`" above, applied at the service level rather than at a single property read. A plugin built this way loads and works with no settings provider composed at all (the client half falls back to a process-local, non-persisted preference); it only gains durability when one exists.
+
+The client half then reads and writes that namespace through `ctx.settingsScope.bind({ namespace })` (from `@deepseek-ai/dsh-client-ui-settings`'s client half, itself a Cordis service — not a bare function import, because the client bundle purity rule below forbids cross-plugin value imports), never through the host `Config` path. See `template/optional-client-half.md`'s "Client-owned durable preferences aren't `Config`" section for the client-side half of this pattern.
 
 ## Lifecycle: every registration is a reversible effect
 
@@ -207,19 +233,33 @@ Three ways to get a bundle into someone's profile, in order of friction:
 
 Choosing (2) or (3) as your primary distribution path avoids the `allowBuilds` friction entirely; choosing (1) means you own documenting it clearly. `dsh-forge-ship` walks through preparing whichever channel you pick.
 
-## The client half (lower confidence — verify before shipping)
+## The client half (partially confirmed — verify before shipping)
 
-Read this section knowing that no official tutorial walks a third-party author through building a DSH Web client plugin from scratch. What follows is inferred from `packages/client/AGENTS.md` in the DSH repository, which documents contributing a *built-in* client package to that repository — two of its three "registration surfaces" are edits to files inside the DSH repository itself (`tsconfig.client.json`, the official web-app bundle's own `cordis.patch.yml` and `package.json`), which do not apply to a package living outside that repository. Treat the mechanism described below as a starting hypothesis to validate against a real `dsh web` instance running the version you target, not as a proven recipe.
+Read this section knowing that no official tutorial walks a third-party author through building a DSH Web client plugin from scratch. Much of it is still inferred from `packages/client/AGENTS.md` in the DSH repository, which documents contributing a *built-in* client package to that repository — two of its three "registration surfaces" are edits to files inside the DSH repository itself (`tsconfig.client.json`, the official web-app bundle's own `cordis.patch.yml` and `package.json`), which do not apply to a package living outside that repository. The bundling shape and the `ctx.theme`/`ctx.settingsScope` service pattern below, however, were confirmed by building and shipping a real third-party client-half plugin against an actual `dsh web` instance — treat those two subsections as higher-confidence than the rest, and everything else here as a starting hypothesis to re-validate against the DSH version you target.
 
-The parts of that document that read as general API contract rather than repository-internal wiring:
+The parts of the official document that read as general API contract rather than repository-internal wiring:
 
 - **One composition API, no exceptions**: a client plugin contributes UI only through `ctx.slots.register({ name, children?, store?, inject? }, Component)`. There is no other sanctioned way to add UI.
 - **Declared children are the only slots you may render into.** Attempting to render an undeclared slot, or declaring one another plugin already declared, fails at load.
 - **Components never touch `ctx` directly.** All data a component needs arrives through props derived from four sources: owner-supplied render-site data, declared child-slot keys, a declared store, and the `inject` face — never a hand-rolled hook reaching back into `ctx`.
 - **A UI plugin's public export surface is minimal**: effectively just what Cordis loading needs (`apply`/`inject`/`Config`) plus store factories consumed type-only. Internal components, helpers, and store instances are not meant to be imported by other packages.
 
-A client-half plugin package declares a `dsh.client` field in `package.json` (informational metadata used for preflight display and HMR diffing — it does not itself sequence load order the way `inject` does for Cordis services) and ships a browser entry conventionally exported as `./client`. Confirm the exact current shape — field names, required build tooling, bundling expectations — against the DSH version you're targeting before relying on it; this kit does not template a client half by default for that reason.
+A client-half plugin package declares a `dsh.client` field in `package.json` (informational metadata used for preflight display and HMR diffing — it does not itself sequence load order the way `inject` does for Cordis services) and ships a browser entry conventionally exported as `./client`. Confirm the exact current shape — field names, required build tooling, bundling expectations — against the DSH version you're targeting before relying on it.
+
+### Bundling: two build targets, and never guessing the externals list
+
+Confirmed by inspecting the compiled output of a real installed client package (`@deepseek-ai/dsh-client-ui-theme`'s own `lib/client.js`): the client-half bundle is a self-contained CJS file wrapped in `window.__ModuleLoader__.load({ id, factory: (require) => { ...; return module.exports } })`, built separately from the host ESM library. `template/optional-client-half.md`'s "Two build targets, not one" section has a working `tsdown.config.ts` producing both from one `src/` tree.
+
+The single most consequential mistake in this bundling step is an incomplete or absent externals list: anything imported as a value (not a type) from `react` or from an `@deepseek-ai/dsh-client-*` package gets silently bundled as a duplicate copy instead of resolved through the host's shared module table, unless it's explicitly listed and marked `neverBundle`. Do not guess this list — read the target dependency's own already-compiled `lib/client.js` and copy the exact specifiers it passes to `require(...)`, per `template/optional-client-half.md`'s "Never guess your externals list."
+
+### Client-owned user preferences vs. `Config`
+
+See "`Config` is not the same thing as a client-owned user preference" above — the short version: a client-half plugin that wants a preference to survive a reload needs a minimal host half registering a durable settings section through the optional `ctx.inject(['settings'], ...)` pattern, not a `Config` schema. Confirmed against the compiled host halves of `@deepseek-ai/dsh-client-ui-theme` and `@deepseek-ai/dsh-client-locale`, neither of which exports `Config` at all.
+
+### Testing a client half
+
+See "Testing a client half" in `dsh-forge-verify` for the concrete pattern (hand-mounting with faked services, why a real `@deepseek-ai/dsh-client-*/client` subpath cannot be imported directly under plain Node, and the official `@deepseek-ai/dsh-client-test-runtime` package as an alternative to hand-written fakes).
 
 ## Sources
 
-Everything above traces to files in a `deepseek-ai/deepseek-harness` checkout: `docs/user/develop/basic/{index,tool,config,publish}.md`, `docs/user/develop/framework/{index,service,events}.md`, `docs/user/develop/practice/index.md`, `docs/postmortem/0001-acp-default-export-drops-inject.md`, `packages/AGENTS.md`, and — flagged above as lower-confidence — `packages/client/AGENTS.md`. Re-check against your target DSH version's copies of these files; DSH is explicitly a developer preview with compatibility-breaking changes expected.
+Most of the above traces to files in a `deepseek-ai/deepseek-harness` checkout: `docs/user/develop/basic/{index,tool,config,publish}.md`, `docs/user/develop/framework/{index,service,events}.md`, `docs/user/develop/practice/index.md`, `docs/postmortem/0001-acp-default-export-drops-inject.md`, `packages/AGENTS.md`, and — flagged above as mixed-confidence — `packages/client/AGENTS.md`. The client-half bundling shape, the `Config`-vs-client-preference distinction, and the `ctx.theme`/`ctx.settingsScope` service pattern were instead confirmed by reading the compiled output of real installed `@deepseek-ai/dsh-client-*` packages (`dsh-client-ui-theme`, `dsh-client-locale`, `dsh-client-ui-settings`) and by building and booting a real third-party client-half plugin against an actual `dsh web` instance — cite those as "confirmed against version X" rather than as officially documented, since no official tutorial covers them. Re-check everything here against your target DSH version's copies of these files; DSH is explicitly a developer preview with compatibility-breaking changes expected.

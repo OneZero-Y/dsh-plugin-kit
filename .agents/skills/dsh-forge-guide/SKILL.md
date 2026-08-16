@@ -29,7 +29,7 @@ requiredServices:
 optionalServices:
 configFields:
 capabilityShape:    single package | three-role split
-clientHalf:         none | needed (flag as lower-confidence, per contract reference)
+clientHalf:         none | needed (mixed-confidence, per contract reference)
 activationProven:   yes/no + evidence
 testCoverage:        summary
 distributionChannel: git | tarball | npm
