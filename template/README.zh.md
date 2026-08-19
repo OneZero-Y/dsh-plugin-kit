@@ -22,14 +22,14 @@ dsh plugin --profile web add "github:your-scope/dsh-plugin-template#<commit-sha>
 dsh web
 ```
 
-本包带 `prepare` 脚本，pnpm 会在用户 clone 下来后在其机器上构建它。**pnpm 10+ 在拿到明确授权前会拒绝为 Git 依赖运行该脚本**——从全新 profile 第一次 `add` 会失败，报错会直接给出需要加的 key。这是 pnpm 的预期行为，不是包坏了。把打印出的 key 加进该 profile 的 `pnpm-workspace.yaml`：
+本包带 `prepare` 脚本，pnpm 会在用户 clone 下来后在其机器上构建它。**pnpm 10+ 在拿到明确授权前会拒绝为 Git 依赖运行该脚本**——从全新 profile 第一次 `add` 会失败，报错会直接给出需要加的 key。这是 pnpm 的预期行为，不是包坏了。**照抄你自己报错里打印出的那个 key**——它不只是包名，而是包名加上解析出的那个 commit 的 tarball 下载地址，每次新 commit 都会变：
 
 ```yaml
 allowBuilds:
-  '@your-scope/dsh-plugin-template': true
+  '@your-scope/dsh-plugin-template@https://codeload.github.com/your-scope/dsh-plugin-template/tar.gz/<你自己报错里的那串commit哈希>': true
 ```
 
-然后重新执行同一条 `dsh plugin add` 命令。授权构建意味着这个仓库的代码会在用户机器上、脱离 agent 沙箱运行——所以钉 commit 而不是钉分支，避免之后的 push 悄悄改变已安装用户下次运行到的代码。
+然后重新执行同一条 `dsh plugin add` 命令。授权构建意味着这个仓库的代码会在用户机器上、脱离 agent 沙箱运行——所以钉 commit 而不是钉分支，避免之后的 push 悄悄改变已安装用户下次运行到的代码。因为这个 key 钉死在具体 commit 上，**这个包以后每次更新，都需要一份新的 `allowBuilds` 记录**——不是装一次就永久有效，用户下次装到新 commit 时会再看到一次同样的提示。
 
 ## 使用
 

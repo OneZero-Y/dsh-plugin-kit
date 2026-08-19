@@ -45,7 +45,7 @@ Use a scratch or dedicated development profile for composition testing — do no
 dsh plugin --profile <scratch-profile> add <local-path-or-approved-spec>
 ```
 
-If installing from a git source and the package ships a `prepare` script, expect the first `add` in a fresh profile to fail with a pnpm `allowBuilds` message — that is normal per `dsh-forge-ship`'s distribution guidance, not a wiring defect; add the printed key to that profile's `pnpm-workspace.yaml` and re-run the unchanged command.
+If installing from a git source and the package ships a `prepare` script, expect the first `add` in a fresh profile to fail with a pnpm `allowBuilds` message — that is normal per `dsh-forge-ship`'s distribution guidance, not a wiring defect; add the printed key to that profile's `pnpm-workspace.yaml` and re-run the unchanged command. That key is pinned to the exact commit resolved at that `add` (the printed key embeds a commit-specific tarball URL), not to the package as a whole — re-testing after pushing a new commit reproduces this same failure with a **different** key, not a one-time setup you'd expect to already be satisfied.
 
 ## Prove activation, not just installation
 

@@ -22,14 +22,14 @@ dsh plugin --profile web add "github:your-scope/dsh-plugin-template#<commit-sha>
 dsh web
 ```
 
-This package ships a `prepare` script, so pnpm builds it on the consumer's machine after cloning. **pnpm 10+ refuses to run that script for a Git dependency until it is explicitly allowed** — the first `add` from a fresh profile will fail, and the error names the exact key to add. This is expected pnpm behavior, not a broken package. Add the printed key to that profile's `pnpm-workspace.yaml`:
+This package ships a `prepare` script, so pnpm builds it on the consumer's machine after cloning. **pnpm 10+ refuses to run that script for a Git dependency until it is explicitly allowed** — the first `add` from a fresh profile will fail, and the error names the exact key to add. This is expected pnpm behavior, not a broken package. Copy the printed key **exactly as shown in your own error output** — it is not just the package name, but the package name plus the resolved commit's tarball URL, and it changes on every new commit:
 
 ```yaml
 allowBuilds:
-  '@your-scope/dsh-plugin-template': true
+  '@your-scope/dsh-plugin-template@https://codeload.github.com/your-scope/dsh-plugin-template/tar.gz/<commit-sha-from-your-error>': true
 ```
 
-Then re-run the identical `dsh plugin add` command. Authorizing a build is explicit permission for this repository's code to run on the consumer's machine outside any agent sandbox — pin a commit, not a branch, so a later push can't silently change what already-installed users run next.
+Then re-run the identical `dsh plugin add` command. Authorizing a build is explicit permission for this repository's code to run on the consumer's machine outside any agent sandbox — pin a commit, not a branch, so a later push can't silently change what already-installed users run next. Because this key is pinned to a specific commit, **a later update to this package needs a fresh `allowBuilds` entry too** — expect this same prompt again after any future commit a consumer re-installs against, not just on the first install.
 
 ## Usage
 
